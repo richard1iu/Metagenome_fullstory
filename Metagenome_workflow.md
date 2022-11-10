@@ -124,7 +124,9 @@ if run error, try transfer the format of input file from gz to fastq and then ru
 ```bash
 # megahit is more rapid and resource saving
 megahit -1 ERR486840_1.fastq.gz -2 ERR486840_2.fastq.gz -o m_genitalium
-
+```
+## SPAdes
+```
 # SPAdes/metaSPAdes for fastq <100Mb, it is most accurate but time-cost
 spades.py --pe1-1 ERR486840_1.fastq.gz --pe1-2 ERR486840_2.fastq.gz -o assembly/spades/
 ```
