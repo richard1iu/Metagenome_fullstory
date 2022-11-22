@@ -6,7 +6,7 @@
 - 病毒序列
 
 
-# 1.原核生物
+## 1.原核生物
 
 能预测**蛋白编码基因**，不能预测**RNA编码基因** (barrnap:rRNA, tRNAscan-SE:tRNA)
 不能预测**包含内含子**的基因
@@ -28,13 +28,13 @@ prodigal -i ref.fna -a ref.pep -d ref.cds -f gff -g 11 -o ref.gff -s ref.stat  >
 -o：输出结果文件，有多种格式可选
 -s：统计信息
 
-# 2.真核生物
+## 2.真核生物
 
 ```bash
 augustus --strand=both --genemodel=partial --singlestrand=false --protein=on --introns=on --start=on --stop=on --cds=on --codingseq=on --alternatives-from-evidence=true --gff3=on --UTR=on --outfile=out.gff --species=human HS04636.fa
 ```
 
-# 3.基因功能注释
+## 3.基因功能注释
 给定一个fasta格式的氨基酸序列，如何得到基因的功能信息？可以使用eggnog-mapper进行分析。
 
 ```
@@ -50,7 +50,7 @@ emapper.py -i gene.fasta --output polb_bact -d bact --data_dir eggnog-mapper-1.0
 –database：单独指定数据库
 –dmnd_db：单独指定diamond数据库路径
 
-# 4.rRNA预测
+## 4.rRNA预测
 给定一段序列，如何找到rRNA，包括原核生物的5S，16S，23S，真核生物的5.8S，18S，28SRNA等.
 由于核糖体RNA具高的保守性，因此预测准确性较高。
 使用rnammer或者barrnap 软件or使用Infernal基于数据库rfam软件，直接输入fasta序列即可。
@@ -63,7 +63,7 @@ rnammer -S bac -m tsu,lsu,ssu -gff ref.gff -f ref.frn ref.fna
 -gff：输出gff格式结果
 -f：输出fasta格式序列
 
-# 5.tRNA预测
+## 5.tRNA预测
 给定一段序列，如何找到tRNA，可以使用tRNAscan工具
 
 ```bash
