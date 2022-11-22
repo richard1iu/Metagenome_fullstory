@@ -1,4 +1,4 @@
-# Trimming
+# Step.1 Trimming
 ---------------------
 ## Scythe: (very slow)
 
@@ -65,7 +65,7 @@ unique-kmers.py SRR1976948_1.qc.fq.gz SRR1976948_2.qc.fq.gz
 unique-kmers.py SRR1976948.trim.fq
 ```
 
-# Mapping/alignment
+# Step.2 Mapping/alignment
 ---------------------
 ## Bowtie2
 ***algorithm:** Burrows–Wheeler transform*
@@ -90,7 +90,7 @@ bwa index p0157_Sakai.fasta.gz -p p0157_Sakai
 bwa mem -t 4 SRR957824_trimmed_R1.fastq.gz SRR957824_trimmed_R2.fastq.gz > fastq.mem.sam
 ```
 
-# Visualising the sam
+# Option.1 Visualising the sam
 ---------------------
 ## samtools
 
@@ -106,7 +106,7 @@ samtools index SRR2584857.sorted.bam
 samtools tview SRR2584857.sorted.bam pO157_Sakai.fasta.gz
 ```
 
-# Variant Calling
+# Option.2 Variant Calling
 ---------------------
 ## samtools
 finding positions where the reads are systematically different from the reference genome. 
@@ -116,7 +116,7 @@ Single nucleotide polymorphism (SNP)-based typing is particularly popular and us
 samtools mpileup -uD -f pO157_Sakai.fasta.gz SRR2584857.sorted.bam | bcftools view - > variants.vcf
 ```
 
-# Genome assembly
+# Step.3 Genome assembly
 ---------------------
 ## MEGAHIT（De-novo）
 if run error, try transfer the format of input file from gz to fastq and then run it again.
@@ -124,12 +124,14 @@ if run error, try transfer the format of input file from gz to fastq and then ru
 ```bash
 # megahit is more rapid and resource saving
 megahit -1 ERR486840_1.fastq.gz -2 ERR486840_2.fastq.gz -o m_genitalium
-
+```
+## SPAdes
+```
 # SPAdes/metaSPAdes for fastq <100Mb, it is most accurate but time-cost
 spades.py --pe1-1 ERR486840_1.fastq.gz --pe1-2 ERR486840_2.fastq.gz -o assembly/spades/
 ```
 
-# Quality evaluation of the Assembly
+# Step.4 Quality evaluation of the Assembly
 ---------------------
 ## QUAST
 Evaluate quality of assembly with quality metrics, it can be used in the case with or without reference genome
@@ -158,7 +160,7 @@ BUSCO.py -i m_genitalium.fasta -l bacteria_odb9 -o busco_genitalium -m genome -f
 **D:** the number of duplication
 **M:** the number of genes that may be missing
 
-# Fixing misassemblies
+# Option.1 Fixing misassemblies
 ---------------------
 ## Pilon
 
@@ -183,7 +185,7 @@ samtools index assembled_contigs.sorted.bam
 # 2.fix
 pilon --genome assembled_contigs.fa --frags assembled_contigs.sorted.bam --output assembled_contigs_improved
 ```
-# Binning
+# Step.5 Binning
 ----------------------
 Firstly,  map the reads back against the assembly to get coverage information
 
@@ -199,7 +201,7 @@ samtools index tara_sorted.bam
 ```
 
 ## concoct 1.1.0 
-unsupervised binning of metagenomic contigs by using **nucleotide composition**, **kmer frequencies**,**coverage data** in multiple samples and **linkage data** from paired end reads
+Unsupervised binning of metagenomic contigs by using **nucleotide composition**, **kmer frequencies**,**coverage data** in multiple samples and **linkage data** from paired end reads
 
 ```bash
 # set the path of Database (NECESSARY!!!)
@@ -207,23 +209,27 @@ export CHECKM_DATA_PATH=/mnt/f/Database/checkm_data_2015_01_16
 
 # Cut contigs into smaller parts
 cut_up_fasta.py assembled_contigs.fa -c 10000 -o 0 --merge_last -b contigs_10K.bed > contigs_10K.fa
+
 # coverage depth information (input files are sorted and indexed bam)
 concoct_coverage_table.py contigs_10K.bed mapping/Sample*.sorted.bam > coverage_table.tsv
+
 # binning
 concoct --composition_file contigs_10K.fa --coverage_file coverage_table.tsv -b concoct_output/
+
 # Merge subcontig clustering into original contig clustering
 merge_cutup_clustering.py concoct_output/clustering_gt1000.csv > concoct_output/clustering_merged.csv
+
 # Extract bins as individual FASTA
 mkdir concoct_output/fasta_bins
 extract_fasta_bins.py assembled_contigs.fa concoct_output/clustering_merged.csv --output_path concoct_output/fasta_bins
 
 ```
 
-# Checking the quality of the bins
+# Step.6 Checking the quality of the bins
 
 ## checkm
 
-if checkm **fails at the phylogeny step**, it is likely that your pc **doesn't have enough RAM**. 
+If checkm **fails at the phylogeny step**, it is likely that your pc **doesn't have enough RAM**.  
 pplacer requires about **35G of RAM** to place the bins in the tree of life.
 
 **workflow:**
@@ -238,14 +244,10 @@ For convenience, the 4 mandatory steps can be executed using one-step command:
 ```bash
 # check the quality of bins, input file are the dir contain the fa file from binning
 checkm lineage_wf -t 8 -x fa --tab_table -f bins_qa.txt concoct_output/fasta_bins/ ../checkm
-
-#
-
-
 ```
 
 
-# Genome Annotation
+# Step.7 Genome Annotation
 ---------------------
 ## Prokka
 Prokka is a "wrapper" collecting several pieces of software from various authors
@@ -276,7 +278,7 @@ prokka --outdir prokka_annotation --kingdom Bacteria --prefix metag --metagenome
 
 ## prodigal (gene calling)
 
-protein-coding gene prediction for **prokaryotic** genomes, it is **unsupervised and rapid**
+Protein-coding gene prediction for **prokaryotic** genomes, it is **unsupervised and rapid**
 
 ```bash
 #
