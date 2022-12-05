@@ -83,10 +83,10 @@ multiqc -f -o fastqc_multiqc fastqc_result
 9. -s: output trimmed singles fastq file
 ```bash
 # single file
-## sanger
+## single end
 sickle se -f SRR391535.fastq -t sanger -o trimmed_SRR391535.fastq -q 35 -l 45
 
-## illumina file
+## paired end
 sickle se -t sanger -f SRR391535_R1.fastq -r SRR391535_R2.fastq  -o trimmed_SRR391535_R1.fastq -p trimmed_SRR391535_R2.fastq -s singles_SRR391535_R1.fastq -q 35 -l 45
 
 # multiple file
@@ -105,6 +105,14 @@ fastp \
 	--html fastp_result/{}_fastp.html
 ```
 
+3.Trimmomatic
+```bash
+# paired
+trimmomatic PE sub1_R1.fq.gz sub1_R2.fq.gz \
+               sub1_R1.trim.fq sub1_R1.unpaired.trim.fq \
+               sub1_R2.trim.fq sub1_R2.unpaired.trim.fq \
+               SLIDINGWINDOW:4:20 MINLEN:25 ILLUMINACLIP:NexteraPE-PE.fa:2:40:15
+```
 ### 4.Alignment
 #### 4.1 Map to reference genome
 1.STAR
@@ -120,7 +128,7 @@ STAR --runMode genomeGenerate \
     --readFilesIn ./sample1.fasta \ # input sample
     --outFileNamePrefix sample1 \
     --outSAMtype BAM SortedByCoordinate \
-    --quantMode TranscriptomeSAM GeneCounts # output files for transripts quantification using RSEM
+    --quantMode TranscriptomeSAM GeneCounts # quantify gene count and output files for transripts quantification using RSEM
 ```
 
 2.Hisat2
@@ -237,7 +245,7 @@ stringtie -e \ # only estimate the abundance of given reference transcripts
           -B \ # returns a Ballgown input table file
           -p 4 \ # threads
           sample.sorted.bam \ # result file of sample genome alignment
-          -G stringtie_merged.gtf \ # sample GTF file
+          -G stringtie_merged.gtf \ # merged_sample GTF file
           -o output.count \ # output path/file name
           -A gene_abundance.out # gene abundance estimation output file
 ```
@@ -293,8 +301,8 @@ htseq-count \
   -r pos \ # BAM file is coordinate sorted
   —t exon \
   -i pacid \
-  -f bam SRR391535Aligned.sortedByCoord.out.bam \
-  ./alignment/Gmax_275_Wm82.a2.v1.gene_exons > SRR391535-output_basename.counts
+  -f bam sample_sorted.bam \
+  ./alignment/Gmax_275_Wm82.a2.v1.gene_exons > sample.counts
 
 # multiple files
 cat $SEQLIST | \
@@ -308,18 +316,59 @@ parallel -j 5 \
 ```
 
 2.FeatureCount
+> The fastest
+```bash
+#
+featureCounts -p \ # paired
+              -a ./genome.gtf\ # annotation .gtf file
+              -o gene_counts.txt \ # output count results
+              -T 4 \ # threads number
+              -t exon \ # rna type
+              -g gene_id \ # rowname
+              sample*.bam # all input files
 
+#
 ```
-
-```
-
 
 3.RSEM
+Alignment-based **transcript** quantification
+```bash
+# build index using bowtie2
+rsem-prepare-reference \
+      -gtf annotation.gtf \
+   		--bowtie2 \
+      reference_genome.fa ./RSEM_index/
 
+# align and quantify transcripts
+rsem-calculate-expression \
+	  -p 6 \
+	  --bowtie2 \
+	  --append-names \ # append name of gene and transcripts
+	  --output-genome-bam \
+	  --paired-end sample_R1.fastq sample_R2.fastq \
+	  ./RSEM_index/ \
+	  RSEM/sample_count
+
+# only align
+bowtie2 -q \
+	  --phred33 \
+	  --sensitive \
+	  --dpad 0 \
+	  --gbar 99999999 \	# omit gap
+	  --mp 1,1 \
+	  --np 1 \
+	  --score-min L,0,-0.1 \
+	  -I 1 -X 1000 --no-mixed \
+	  --no-discordant \	# omit paired reads discordant
+	  -p 6 \
+	  -k 200 \	# output the top 200 match results
+	  -x RSEM_index/ \
+	  -1 sample_R1.fastq \
+	  -2 sample_R2.fastq | samtools view   -S -b -o RSEM_align/sample.bam
+
+# only quantify transcripts
+rsem-calculate-expression --alignments
 ```
-
-```
-
 
 4.kallisto  
 kallisto is fast, and referred to as a **"pseudo-mapper"** because it have **no base-level alignment** of reads in favor of finding reads' approximate position in the reference transcriptome.
@@ -352,7 +401,7 @@ edge.pl -g ../reference_genome/NC_003210.fna \ # prokaryotic reference genome fa
         -t 8
 
 # convert the output of EDGE-pro to DESeq
-EDGE_pro/1.3.1/additionalScripts/edgeToDeseq.perl SRR034450.out.rpkm_0
+edgeToDeseq.perl SRR034450.out.rpkm_0
 
 # remove the duplicate row (gene) with the smallest total count
 python trim_epro2deseq.py deseqFile

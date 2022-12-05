@@ -1,6 +1,7 @@
-
+## Reference
+[stringtie merge and gene_id](https://www.jianshu.com/p/d828d45d8b6c)
 # Workflow
-HISAT2→Stringtie→DESeq2 (Fast and simple)
+HISAT2→Stringtie→DESeq2 
 1. Hisat2: genome alignment
 2. Stringtie: transcripts alignment and qualification
 3. DEseq2: differential gene expression
@@ -27,16 +28,16 @@ BiocManager::install("DESeq2")
 ## Quality control
 
 ```
- fastqc -t 2 sample1.fastq sample2.fastq 
+fastqc -t 2 sample1.fastq sample2.fastq 
 ```
 
 ## Genome alignment
 ```bash
 # index
-hisat2-build -p 4 ./Genome/Gmax_275_v2.0.fa ./Genome/
+hisat2-build -p 4 ./Genome/Gmax_275_v2.0.fa ./Genome/Index
 
 # single end
-hisat2 -p 4 -t -x ./Genome/ -U sample1.fastq -S sample1.sam --dta-cufflinks --no-unal --un-conc
+hisat2 -p 4 -t -x ./Genome/ -U sample1.fastq -S sample1.sam --dta-cufflinks --no-unal
 
 # paired end
 hisat2 -p 4 -t -x ./Genome/ -1 sample1.R1.fastq -2 sample1.R2.fastq -S sample1.sam
@@ -51,20 +52,20 @@ samtools view -Sb sample1.sam | samtools sort -@ 4 -o sample1.sorted.bam -
 gffread ./Genome/Gmax_275_Wm82.a2.v1.gene_exons.gff3 -T -o ./Genome/genome.gtf
 
 # assemble and align
-stringtie -p 4 -l sample -G ./Genome/genome.gtf -o sample1.gtf sample1.sorted.bam
+stringtie -p 4 -G ./Genome/genome.gtf -l sample -o sample1.gtf sample1.sorted.bam
 
 # merge gtf of all samples
 ls -1 ./*.gtf >> sample_gtf_list.txt
-stringtie --merge -p 4 -o stringtie_merged.gtf -G Reference.gtf sample_gtf_list.txt
+stringtie --merge -p 4 -G ./Genome/genome.gtf -o stringtie_merged.gtf  sample_gtf_list.txt
 
 # compare sample.gtf with reference gtf
-gffcompare -r ./Genome/genome.gtf -o gffcompare sample1.gtf
+gffcompare -r ./Genome/genome.gtf -o gffcompare stringtie_merged.gtf
 
 # quantification
-stringtie -e -B -p 4 -G genome.gtf -o ballgown/sample.gtf sample.gtf
+stringtie -e -B -p 4 -G stringtie_merged.gtf -o ballgown/sample1_merged.gtf sample1.sorted.bam
 ```
 # convert ballgown to deseq2
-Download the script of [prepDe.py](http://ccb.jhu.edu/software/stringtie/dl/prepDE.py)
+Download the script of [prepDe.py](http://ccb.jhu.edu/software/stringtie/dl/prepDE.py3)
 
 ```bash
 # make a gtf_list with two column
@@ -72,8 +73,7 @@ ls *.gtf > path.txt
 ls *.gtf | xargs -i basename {} .gtf > sampleid.txt
 paste sampleid.txt path.txt > gtf_list.txt
 #
-conda activate py2
-python ./prepDE.py -i gtf_list.txt
+python ./prepDE_py3.py -i gtf_list.txt
 ```
 
 ## Preprocess of gene id
