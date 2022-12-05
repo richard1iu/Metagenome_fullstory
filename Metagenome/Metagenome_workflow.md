@@ -289,7 +289,7 @@ prodigal -i my.metagenome.fna -o my.genes -a my.proteins.faa -p meta
 
 # Gene Abundance Estimation
 ## salmon
-Salmon is a very fast RNAseq counting packages, which counts fragments without doing up-front read mapping. 
+Salmon is a **very fast** RNA-seq counting software, which counts fragments without **doing up-front read mapping**. 
 Salmon can be used with edgeR and others to do differential expression analysis (if you are quantifying RNAseq data).
 
 ```bash
@@ -317,3 +317,98 @@ salmon quant -i transcript_index --libType IU \ # --libType must come before the
  done
 ```
 
+
+# Step.8 Function annotation
+
+we should annotate the protein and then align protein against the functional database to estimate the relative abundance of a certain function
+
+1. CARD
+2. KEGG
+3. metaCyc (metabolite path)
+4. EGGNOG
+5. COG: Clusters of Orthologous Groups of proteins
+6. GO
+7. CAZy (enzyme)
+
+
+## diamond
+The function with highest score (one HSP > 60 bits) will be selected
+
+- need a lot of memory and disk space. fail due to running out of either one, you need to set a lower value for the block size parameter -b 
+- The default (fast) mode was mainly designed for short reads. For longer sequences, the sensitive modes (options –sensitive or –more-sensitive) are recommended.
+- The full speed of the program is only attained on large query datasets. It is currently not efficient in mapping a smaller number of query sequences.
+- The default e-value cutoff of DIAMOND is 0.001 while that of BLAST is 10, so by default the program will search a lot more stringently than BLAST and not report weak hits.
+
+```bash
+# index
+diamond makedb --in cog_clean.fa -d cog
+
+# alignment
+diamond blastp -q Unigenes_50.fa \ # input query fasta
+               -d database/COG/cog_clean.fa \ # database
+               -t COG/blastout \ #  directory for temporary files
+               -p 4 \
+               -e 1e-5 \ # e-value cutoff 
+               -k 50 \   # maximum number of target sequences to report alignments for
+               --sensitive \ # --more-sensitive
+               -o Unigenes_50.fa.m8
+```
+
+##
+
+```bash
+#
+humann2 --threads 1 --input cat_reads/p144C.fastq  --output humann2_out/
+
+#
+parallel -j 6 'humann2 --threads 6 --input {} --output humann2_out/{/.} --memory-use maximum' ::: cat_reads/*fastq
+
+#merge all results
+merge_metaphlan_tables.py precalculated/metaphlan2_out/*tsv > metaphlan2_merged.tsv
+```
+## eggNOG-Mapper
+Fast Genome-Wide Functional Annotation through Orthology Assignment
+defualt **diamond blastp**
+```bash
+# download diamond database
+download_eggnog_data.py -F 
+
+# blastp
+emapper.py -i test/p53.fa \ # FASTA file containing your query sequences
+          -o test \ # specif a prefix of all output files
+          -d maNOG \ # specific tha database
+          --usemem \ # speed up using memory
+          --cpu 10
+
+# blastx
+emapper.py -m diamond --itype CDS -i fasta -o test
+
+# using MMseqs after translating input CDS to proteins,
+emapper.py -m mmseqs \
+          --itype CDS \
+          --translate \
+          -i FASTA_FILE_CDS \
+          -o test \ 
+          --decorate_gff MY_GFF_FILE \   # add annotation to the attributes of a GFF file
+          --decorate_gff_ID_field GeneID # using the GeneID field to link features from the GFF to the annotation.
+
+# search and annotation for assembled contigs, using MMseqs2 "blastx" hits for gene prediction
+emapper.py -m mmseqs \
+          --itype metagenome \
+          -i FASTA_FILE_NTS -o test
+
+# run search and annotation for a genome, using Diamond search on proteins predicted by Prodigal
+emapper.py -m diamond \
+          --itype genome \
+          --genepred prodigal \
+          -i FASTA_FILE_NTS -o test \
+          --output_dir /home/me/mydir
+
+# Run gene prediction using a genome to train Prodigal
+emapper.py -m mmseqs \
+          --itype genome \
+          --genepred prodigal \
+          -i FASTA_FILE_NTS -o test \
+          --training_genome FASTA_FILE 
+          --training_file OUT_TRAIN_FILE
+```

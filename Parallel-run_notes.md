@@ -1,4 +1,5 @@
 # GNU parallel
+<<<<<<< HEAD
 
 ## install
 >Notice: DON'T install prallel using apt 
@@ -43,3 +44,5 @@ parallel -d : echo :::: /etc/passwd
 - -j | --jobs: the number of jobs (integer) simultaneous running, less than the core number of your PC
 - --load: The maximum CPU load (percent. e.g. 80%), if CPU load reach it, then new job will not be started
 - --noswap: New jobs won't be started if the most memory of your PC are occupied  
+=======
+>>>>>>> 553a374 (parallel)
