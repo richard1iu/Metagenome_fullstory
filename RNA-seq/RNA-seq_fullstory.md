@@ -84,10 +84,10 @@ multiqc -f -o fastqc_multiqc fastqc_result
 ```bash
 # single file
 ## single end
-sickle se -f SRR391535.fastq -t sanger -o trimmed_SRR391535.fastq -q 35 -l 45
+sickle se -f sub1.fastq -t sanger -o trimmed_sub1.fastq -q 35 -l 45
 
 ## paired end
-sickle se -t sanger -f SRR391535_R1.fastq -r SRR391535_R2.fastq  -o trimmed_SRR391535_R1.fastq -p trimmed_SRR391535_R2.fastq -s singles_SRR391535_R1.fastq -q 35 -l 45
+sickle pe -t sanger -f sub1_R1.fastq -r sub1_R2.fastq  -o trimmed_sub1_R1.fastq -p trimmed_sub1_R2.fastq -s singles_sub1_R1.fastq -q 35 -l 45
 
 # multiple file
 
@@ -111,24 +111,47 @@ fastp \
 trimmomatic PE sub1_R1.fq.gz sub1_R2.fq.gz \
                sub1_R1.trim.fq sub1_R1.unpaired.trim.fq \
                sub1_R2.trim.fq sub1_R2.unpaired.trim.fq \
-               SLIDINGWINDOW:4:20 MINLEN:25 ILLUMINACLIP:NexteraPE-PE.fa:2:40:15
+               SLIDINGWINDOW:4:20 MINLEN:75 ILLUMINACLIP:NexteraPE-PE.fa:2:40:15
 ```
 ### 4.Alignment
 #### 4.1 Map to reference genome
 1.STAR
->Fast but need very large memory
+>Extremly fast but need very large memory
 ```bash
+# 1.build index
+STAR 
+--runMode genomeGenerate \
+--genomeDir ./star_index \
+--genomeFastaFiles ./zm-4.genome.fasta \
+--sjdbGTFfile ./zm-4.gene.gff3 \
+--runThreadN 8
+
+# 2.align
+STAR \
+--runMode alignReads \ # align mode
+--runThreadN 8 \ #threads
+--readFilesCommand zcat \ # for .gz files
+--quantMode TranscriptomeSAM GeneCounts \ #align transcripts
+--twopassMode Basic \ # double align, extremly time cost
+--outSAMtype BAM SortedByCoordinate \ output sorted .bam
+--outSAMunmapped None \
+--genomeDir ./star_index \ #index dir
+--readFilesIn sub1_1.fq.gz sub1_2.fq.gz \ # paired fastq
+--outFileNamePrefix sub1 #prefix of output file
+
+# one-step workflow
 STAR --runMode genomeGenerate \
-    --genomeDir ./genome \ # index file directory
-    --genomeFastaFiles ./Gmax_275_v2 \  # input .fasta file 
-    --sjdbGTFfile ./Gmax_275_Wm82.a2.v1.gene_exons \  # annotation .gtf file
+    --genomeDir ./star_index \ # output index directory
+    --genomeFastaFiles ./genome/Gmax_275_v2.fasta \  # reference genome .fasta file 
+    --sjdbGTFfile ./genome/Gmax_275_Wm82.a2.v1.gene_exons.gtf \  # annotation .gtf file
     --sjdbGTFtagExonParentTranscript Parent 
     --sjdbOverhang 100 \ # defualt 100, or read length minus 1
     --runThreadN 8 \
-    --readFilesIn ./sample1.fasta \ # input sample
-    --outFileNamePrefix sample1 \
+    --readFilesIn ./sub1.fasta \ # input sample single
+    --outFileNamePrefix sub1 \
     --outSAMtype BAM SortedByCoordinate \
     --quantMode TranscriptomeSAM GeneCounts # quantify gene count and output files for transripts quantification using RSEM
+
 ```
 
 2.Hisat2
@@ -146,20 +169,20 @@ SAMPLE=$(sed -n ${NUM}p $SEQLIST)
 hisat2-build -p 16 $GENOME $INDEX
 
 # 2.align
-## single
+## single sample
 hisat2 -p 8 \ # processor number
   --dta \     # report alignments results
   -x $INDEX \ # the path of index dir
   -1 ./trimmed_reads/trimmed_SRR391537_R1.fastq -2 ./trimmed_reads/trimmed_SRR391537_R2.fastq  -S ./mapping/SRR391537_R1.sam # output .sam file
 
-## batch
+## batch sample
 hisat2 \
 	-p 8 \ 
 	-x $INDEX \ 
 	-1 $INDIR/${SAMPLE}_trim_1.fastq.gz \
-	-2 $INDIR/${SAMPLE}_trim_2.fastq.gz | \
-samtools view -@ 8 -Sh -u - | \
-samtools sort -@ 8 -T $SAMPLE - >$OUTDIR/$SAMPLE.bam
+	-2 $INDIR/${SAMPLE}_trim_2.fastq.gz \
+  -S ${SAMPLE}.align.sam
+samtools sort -@ 8 -T $SAMPLE ${SAMPLE}.align.sam >$OUTDIR/$SAMPLE.bam
 ```
 #### 4.2 De novo assembly 
 ##### 4.2.1 Assembly of transcriptomes
