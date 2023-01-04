@@ -44,7 +44,7 @@ locate SRR8956146.sra
 
 ```bash
 alias fd='fastq-dump --split-3 --defline-qual '+' --defline-seq '@\\\$ac-\\\$si/\\\$ri' '
-fq SRA_ID
+fd SRA_ID
 ```
 
 ### fasterq-dump
@@ -54,4 +54,5 @@ fq SRA_ID
 3. -O: specific the output dir
 ```
 fasterq-dump --split-3 --mem 16 --threads 8 ./SRR5318040 
+for i in s{10..20};do fasterq-dump $i --split-3 --mem 32G -e 8 --qual-defline '+' --seq-defline '@$ac-$si/$ri'; done
 ```
